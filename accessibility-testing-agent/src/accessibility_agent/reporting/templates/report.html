@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; base-uri 'none'">
+<title>Accessibility report</title>
+<style>
+body{font:16px/1.6 system-ui,sans-serif;background:#f3f5f9;color:#17253b;margin:0}
+main{max-width:1100px;margin:auto;padding:32px}h1{font-size:2.3rem;line-height:1.2}h2{margin-top:32px}
+.card,details{background:white;border:1px solid #c4ccda;border-radius:8px;padding:20px;margin:12px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.metric{font-size:1.8rem;font-weight:700;display:block}a{color:#164ea6}a:focus-visible,summary:focus-visible{outline:3px solid #a43e00;outline-offset:3px}
+summary{cursor:pointer;font-weight:650}table{border-collapse:collapse;width:100%;display:block;overflow:auto}th,td{text-align:left;padding:10px;border-bottom:1px solid #c4ccda;vertical-align:top}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#edf1f6;padding:12px}img{max-width:100%;height:auto}code,td,p{overflow-wrap:anywhere}.muted{color:#475569}
+
+:root{color-scheme:light}html{scroll-behavior:smooth}body{background:#f4f6fb;color:#192840}
+main{max-width:1180px;padding:40px 28px}h1{font-size:clamp(2rem,5vw,3.5rem);letter-spacing:-.045em;margin:12px 0}h2{letter-spacing:-.025em;font-size:1.5rem}h3{font-size:1.05rem}
+nav{display:flex;flex-wrap:wrap;gap:12px;margin:24px 0}nav a,.download{background:white;border:1px solid #bdc9dc;border-radius:8px;padding:8px 16px;text-decoration:none;font-weight:650}
+.card,details{border-color:#d3dce9;border-radius:14px;box-shadow:0 3px 12px #19284006}.card h2{margin-top:0}.metric{font-size:2.4rem;letter-spacing:-.04em}.grid .card{margin:0}.grid{margin:20px 0;gap:18px}
+.grid>div:not(.card){padding:16px;border-radius:10px;background:#f4f6fb;border-top:4px solid #496484}
+.badge{display:inline-block;border-radius:6px;padding:3px 9px;background:#e7eef8;color:#234368;font-size:.8rem;font-weight:750;letter-spacing:.025em;text-transform:uppercase;margin-right:8px}.critical{background:#ffe5ec;color:#951638}.serious{background:#fff0dc;color:#824100}.moderate{background:#fff4c5;color:#655000}.minor{background:#e5efff;color:#244f87}
+.notice{border-left:5px solid #b36a0a;background:#fff7e8;padding:20px 24px;border-radius:8px;margin:24px 0}.notice p{margin:6px 0}.eyebrow{font-size:.8rem;font-weight:750;letter-spacing:.14em;color:#496080}.muted{color:#53627a}
+.shot-preview{margin:12px 0;border:1px solid #bdc9dc;border-radius:10px;background:#edf1f6;max-height:480px;overflow:auto}.shot-preview img{display:block;width:100%;height:auto}.marker{display:inline-block;padding:2px 9px;border-radius:5px;background:#234368;color:white;font-weight:750}.evidence-note{border-left:3px solid #9a5b00;padding-left:12px}.shot-details{box-shadow:none;background:#f8fafc}
+progress{display:block;width:100%;height:10px;margin-top:16px;accent-color:#245bc6}summary{line-height:1.8}summary:hover{color:#174eaa}details[open]>summary{border-bottom:1px solid #d3dce9;padding-bottom:14px;margin-bottom:16px}th{background:#eaf0f8;font-size:.85rem}td{background:white}tr:hover td{background:#f4f7fc}pre{border-radius:8px;font-size:.85rem}section{scroll-margin-top:20px}a:focus-visible,summary:focus-visible{outline:3px solid #174eaa;outline-offset:4px}
+@media(max-width:600px){main{padding:24px 16px}.card,details{padding:16px}nav a{padding:7px 10px}.grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media print{body{background:white}main{max-width:none;padding:0}nav{display:none}.card,details{box-shadow:none;break-inside:avoid}a{color:inherit}}
+</style></head><body><main>
+<p class="eyebrow">ACCESSIBILITY TESTING AGENT / REPORT</p><h1>Accessibility report</h1>
+<p>{{ report.application.url }}</p>
+<nav aria-label="Report sections"><a href="#coverage">Coverage</a> <a href="#findings">Findings</a> <a href="#states">States</a> <a href="#unscanned">Untested areas</a></nav>
+{% if report.scan.status != 'completed' %}<aside class="notice" aria-label="Coverage warning"><strong>This scan is {{ report.scan.status }}. Coverage is incomplete.</strong><p>{{ report.coverage.urls_scanned }} of {{ report.coverage.urls_discovered }} discovered URLs were scanned. Findings apply only to the pages and states tested.</p><a href="#unscanned">See what prevented testing and what to do next</a></aside>{% endif %}
+<section class="card"><h2>At a glance</h2><p>Status: <strong>{{ report.scan.status }}</strong> · WCAG {{ report.scan.wcag }}</p>
+<p>{{ report.summary.disclaimer }} This report covers deterministic axe checks on observed states. A completed run can still contain policy skips and unsupported interaction paths.</p>
+<p>Started {{ report.scan.started_at.strftime('%d %b %Y, %H:%M %Z') }} · Finished {{ report.scan.completed_at.strftime('%d %b %Y, %H:%M %Z') if report.scan.completed_at else 'In progress' }}</p>
+<p>Authentication: {{ report.authentication.status if report.authentication else 'not completed' }}{% if report.authentication %} {{ report.authentication.reason }}{% endif %}</p>
+<div class="grid">{% for severity,count in report.summary.severity_counts.items() %}<div><span class="metric">{{ count }}</span><span class="badge {{ severity.value }}">{{ severity.value }}</span> violation groups</div>{% endfor %}</div>
+<p>{{ report.findings|length }} finding groups (including review items). Original scanner impact is preserved.</p></section>
+<h2 id="coverage">Observed coverage</h2><div class="grid">
+<div class="card"><span class="metric">{{ report.coverage.states_scanned }} / {{ report.coverage.states_discovered }}</span>States scanned<progress aria-label="States scanned" value="{{ report.coverage.states_scanned }}" max="{{ report.coverage.states_discovered or 1 }}"></progress></div>
+<div class="card"><span class="metric">{{ report.coverage.urls_scanned }} / {{ report.coverage.urls_discovered }}</span>URLs scanned<progress aria-label="URLs scanned" value="{{ report.coverage.urls_scanned }}" max="{{ report.coverage.urls_discovered or 1 }}"></progress></div>
+<div class="card"><span class="metric">{{ report.coverage.interactive_elements_tested }} / {{ report.coverage.interactive_elements_discovered }}</span>Controls used<progress aria-label="Controls used" value="{{ report.coverage.interactive_elements_tested }}" max="{{ report.coverage.interactive_elements_discovered or 1 }}"></progress></div>
+</div><p>{{ report.coverage.accessibility_checks_executed }} applicable rule results executed. {% for name,value in percentages.items() %}{{ name }}: {{ value if value is not none else 'N/A' }}{% if value is not none %}%{% endif %}. {% endfor %}</p>
+<p>Discovered URLs include external and policy-skipped links. States count only observed fingerprints; pending URLs have no invented states. Controls used counts successful UI actions, not keyboard testing.</p>
+<details><summary>Configuration and limitations</summary><pre>{{ report.configuration }}</pre><ul>{% for limitation in report.limitations %}<li>{{ limitation }}</li>{% endfor %}</ul></details>
+<h2 id="findings">Findings <span class="badge">{{ report.findings|length }} groups</span></h2><p class="muted">Expand a finding for affected elements, evidence and repair guidance. Screenshot numbers identify affected elements: red outlines show violations; amber outlines show review items. Several issues on the same element share a number. Private data stays masked. Review items require manual confirmation and are excluded from violation totals.</p>{% for finding in report.findings %}
+<details><summary><span class="badge {{ finding.rule_impact.value if finding.rule_impact else '' }}">{{ finding.rule_impact.value if finding.rule_impact else 'unrated' }}</span> {{ finding.title }} <span class="badge">{{ 'Needs review' if finding.classification == 'NEEDS_REVIEW' else finding.classification|replace('_', ' ') }}</span><br><span class="muted">{{ finding.id }} · {{ finding.occurrences|length }} affected occurrences</span></summary>
+<p>{{ finding.classification }} · {{ finding.source }} · confidence {{ finding.confidence }}</p>
+<p>WCAG: {{ finding.wcag|join(', ') or 'Not mapped' }} · {{ finding.principles|join(', ') }}</p>
+<h3>Why this matters</h3><p>{{ finding.description }}</p><h3>How to fix it</h3><p>{{ finding.recommendation or finding.help or "Review the affected element and linked rule guidance." }}</p><p>Rule: {{ finding.rule_id }}</p>
+{% if finding.help_url.startswith('https://dequeuniversity.com/') %}<p><a href="{{ finding.help_url }}" rel="noreferrer">Rule remediation guidance</a></p>{% endif %}
+{% for occurrence in finding.occurrences %}<h3>Occurrence {{ loop.index }}</h3><p>{{ occurrence.url }} · State {{ occurrence.state_id[:12] }}</p>
+<pre>{{ occurrence.selector }}
+{{ occurrence.html }}
+{{ occurrence.failure_summary }}</pre>
+{% if occurrence.screenshot_note %}<p class="evidence-note">{{ occurrence.screenshot_note }}</p>{% endif %}
+{% for evidence_id in occurrence.evidence %}{% for evidence in report.evidence if evidence.evidence_id == evidence_id %}
+{% if evidence.kind == 'screenshot' %}
+<details class="shot-details"><summary>{% if occurrence.screenshot_marker %}<span class="marker {{ 'review' if finding.classification == 'NEEDS_REVIEW' else '' }}">#{{ occurrence.screenshot_marker }}</span> View affected element in screenshot{% else %}View page screenshot · this occurrence has no highlight{% endif %}</summary>
+{% if occurrence.screenshot_marker %}<p>Find marker <strong>#{{ occurrence.screenshot_marker }}</strong> for this occurrence. Numbers belong to this page screenshot.</p>{% endif %}
+<p><a class="download" href="{{ evidence.path }}" target="_blank" rel="noopener">Open full-size screenshot</a></p>
+<figure class="shot-preview"><a href="{{ evidence.path }}" target="_blank" rel="noopener"><img src="{{ evidence.path }}" loading="lazy" alt="{{ finding.title }} — {{ 'affected element at marker #' ~ occurrence.screenshot_marker if occurrence.screenshot_marker else 'page context; affected element is not highlighted' }}"></a></figure>
+</details>
+{% else %}<p><a href="{{ evidence.path }}">{{ evidence.description }}</a></p>{% endif %}
+{% endfor %}{% endfor %}
+{% endfor %}</details>{% else %}<p>No findings recorded. Check scan status and untested areas before interpreting this result.</p>{% endfor %}
+<section class="card"><h2>Interaction testing</h2><p>Controls used counts successful clicks, selections and field edits. Opening a URL directly does not count. Non-interactive containers are excluded.</p><p>Expand <strong>State transitions and replay</strong> below to see each control’s result. A <code>source_refreshed</code> result means the page changed and its controls were planned again from the new state.</p></section>
+<h2 id="states">Application states and graph</h2><p><a href="graph.json">Machine-readable graph</a> · <a href="results.json">Full JSON results, including passes and incomplete checks</a></p>
+<table><thead><tr><th>State</th><th>URL</th><th>Status</th><th>Evidence</th></tr></thead><tbody>{% for state in report.graph.states %}<tr><td>{{ state.state_id[:12] }}</td><td>{{ state.url }}</td><td>{{ state.status }}</td><td>{% if state.screenshot %}<a href="{{ state.screenshot }}">Screenshot</a>{% else %}None{% endif %}</td></tr>{% endfor %}</tbody></table>
+<details><summary>State transitions and replay</summary><table><thead><tr><th>Source</th><th>Control</th><th>Target</th><th>Outcome / replay</th></tr></thead><tbody>{% for action in report.graph.actions %}<tr><td>{{ action.source_state[:12] }}</td><td>{{ action.element.accessible_name }}</td><td>{{ action.target_state[:12] if action.target_state else 'Unverified' }}</td><td>{{ action.outcome }} {{ action.reason or '' }} · {{ action.replay_count }} replays</td></tr>{% endfor %}</tbody></table></details>
+<h2 id="unscanned">Untested areas</h2><p class="muted">Grouped by cause. Counts represent skipped actions or areas, so one URL can appear more than once.</p>
+{% for group in report.unscanned|groupby('reason') %}<details><summary>{{ group.grouper|replace('_',' ')|capitalize }} <span class="badge">{{ group.list|length }} areas</span></summary>
+{% if group.grouper in ['navigation_background_requests_blocked', 'interaction_background_requests_blocked'] %}<p>The loaded page was scanned, but some background requests were blocked by the crawl policy. This can affect dynamic content. Review the page and allow only required request URLs before retrying.</p>
+{% elif group.grouper == 'authentication_origin_not_trusted' %}<p>The sign-in redirect was stopped by the scanner's origin policy. Standard OAuth sign-in redirects back to the application are detected automatically. For other trusted sign-in providers, add the origin shown below using <code>--auth-origin</code> or <code>authentication.allowed_origins</code>.</p>
+{% elif group.grouper == 'replay_diverged' %}<p>The page changed when the crawler tried to return to it. Retry with stable test data or configure ignore_selectors for changing content. Safe links can now be opened directly when replay diverges.</p>
+{% elif 'budget' in group.grouper or group.grouper == 'scan_interrupted' %}<p>The scan reached a configured limit or was interrupted. Increase the relevant crawl limit and run again.</p>
+{% elif group.grouper.startswith('policy_') %}<p>The control could not be confirmed safe to exercise automatically. Review it manually or configure an explicit action allowance after checking its behavior.</p>
+{% elif group.grouper == 'page_readiness_timeout' %}<p>The page was still loading or changing when the readiness wait expired, so it was not scanned. Check the waiting reasons below; adjust the readiness timeout or configure the application's ready element and loading indicators.</p>
+{% elif group.grouper in ['page_changed_before_scan', 'page_changed_during_scan'] %}<p>The page resumed loading or changed around the accessibility checks. This state has no accepted scan results. Retry after the application settles or configure its ready element.</p>
+{% elif 'Timeout' in group.grouper or group.grouper == 'state_unstable' %}<p>The page did not become ready within the configured wait. Check page availability and adjust navigation or stability timeouts.</p>
+{% else %}<p>Review the affected area and scan configuration before retrying.</p>{% endif %}
+<table><thead><tr><th>URL</th><th>Details</th></tr></thead><tbody>{% for area in group.list %}<tr><td>{{ area.url }}</td><td>{{ area.detail or group.grouper|replace('_',' ') }}</td></tr>{% endfor %}</tbody></table></details>
+{% else %}<p>No skipped areas recorded in the observed frontier.</p>{% endfor %}
+<details><summary>Full untested-area log</summary><table><thead><tr><th>URL</th><th>Reason</th></tr></thead><tbody>{% for area in report.unscanned %}<tr><td>{{ area.url }}</td><td>{{ area.reason }} {{ area.detail }}</td></tr>{% else %}<tr><td colspan="2">No skipped areas recorded in the observed frontier.</td></tr>{% endfor %}</tbody></table>
+</details><h2>Keyboard and AI</h2><p>Keyboard testing and AI analysis are not implemented in this release. No keyboard or AI coverage is claimed.</p>
+</main></body></html>
