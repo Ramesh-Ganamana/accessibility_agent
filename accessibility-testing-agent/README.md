@@ -209,12 +209,7 @@ The discovered provider is allowed for that sign-in flow, including username-fir
 forms. This works across providers without hardcoded website names. Normal crawling
 still follows `crawl.same_origin_only`; external links are not added to crawl scope.
 
-For Rygen, start the launcher and enter `https://qa.rygen.com/`. Its Microsoft B2C
-authorization redirect is detected automatically. For a nonstandard trusted sign-in
-flow, pass the provider's exact origin (repeat the option for multiple providers):
 
-```powershell
-.\launch-agent.cmd scan --auth-origin https://rygenexternalqa.b2clogin.com
 ```
 
 The launcher then prompts for your application URL and credentials as usual.
