@@ -20,9 +20,15 @@ from accessibility_agent.interaction.coordinator import console_input_handler
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if arguments and arguments[0] == "acr":
+        from accessibility_agent.conformance.cli import main as conformance_main
+
+        return conformance_main(arguments[1:])
     parser = argparse.ArgumentParser(description="Accessibility testing agent — Phase 2")
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("acr", help="Offline WCAG/ACR worksheets and comparisons; acr --help")
     for name in ("scan", "validate-config"):
         command = commands.add_parser(name)
         command.add_argument("--config", type=Path, help="YAML configuration file")
@@ -54,7 +60,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             action="store_true",
             help="Show Chromium and ask for required setup input after login",
         )
-    arguments = list(sys.argv[1:] if argv is None else argv)
     args = parser.parse_args(arguments or ["scan"])
     interactive = (
         args.command == "scan"
