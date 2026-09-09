@@ -1,0 +1,2 @@
+# Keep the checksum-verified axe bundle byte-for-byte identical on Windows checkouts.
+src/accessibility_agent/accessibility/vendor/axe.min.js -text
