@@ -79,7 +79,8 @@ def test_offline_acr_renderer_escapes_data_and_preserves_pending_decisions(tmp_p
     assert html.count('<option value="Not Evaluated">Not Evaluated</option>') == 2  # filter + AAA
     assert "Automated observations and zero reported issues do not establish Supports" in html
     assert "DRAFT · HUMAN REVIEW REQUIRED" in html
-    assert "not an official ITI VPAT" in html
+    assert "Word draft uses the official ITI VPAT WCAG template" in html
+    assert "not a completed ACR, a certification" in html
     assert "Pass: 14" in html
     assert "Manual evaluation checklist" in html
     nonce = re.search(r"script-src 'nonce-([^']+)'", html).group(1)

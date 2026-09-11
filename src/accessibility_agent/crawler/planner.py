@@ -8,6 +8,7 @@ from playwright.async_api import Page
 from pydantic import SecretStr
 
 from accessibility_agent.config.settings import Crawl
+from accessibility_agent.crawler.discovery import locator_for_item
 from accessibility_agent.crawler.fingerprint import digest
 from accessibility_agent.crawler.navigation import classify_link
 from accessibility_agent.models import Action, Element, Safety, State
@@ -36,6 +37,8 @@ def is_control(item: dict[str, Any]) -> bool:
         or item["role"] in ROLES
         or item["attributes"].get("tabindex", "-1") not in {"-1", ""}
         or bool(item.get("clickable"))
+        or bool(item.get("canvas"))
+        or bool(item.get("draggable"))
     )
 
 
@@ -48,6 +51,8 @@ def identity(item: dict[str, Any]) -> tuple[str, ...]:
         item["input_type"],
         str(item["submit"]),
         item.get("navigation_hint", ""),
+        str(item.get("frame_path", [])),
+        str(item.get("shadow_path", [])),
     )
 
 
@@ -123,14 +128,29 @@ def safety(item: dict[str, Any], root: str, settings: Crawl) -> Safety:
 
 
 async def plan(
-    page: Page, state: State, items: list[dict[str, Any]], root: str, settings: Crawl
+    page: Page,
+    state: State,
+    items: list[dict[str, Any]],
+    root: str,
+    settings: Crawl,
+    *,
+    keyboard_enabled: bool = True,
 ) -> list[Step]:
-    elements = {e.selector: e for e in [*state.interactive_elements, *state.discovered_links]}
+    elements = {
+        (tuple(e.frame_path), tuple(e.shadow_path), e.selector): e
+        for e in [*state.interactive_elements, *state.discovered_links]
+    }
     result = []
     for item in items:
         if not is_control(item):
             continue
-        element: Element | None = elements.get(item["selector"])
+        element: Element | None = elements.get(
+            (
+                tuple(item.get("frame_path", [])),
+                tuple(item.get("shadow_path", [])),
+                item["selector"],
+            )
+        )
         if element is None:
             # Inventory retains hidden anchors, but record() excludes hidden
             # controls without hrefs. Real hidden links remain in the map.
@@ -150,6 +170,8 @@ async def plan(
             reason = "sensitive_control"
         elif item["attributes"].get("aria-selected") == "true" and item["role"] == "tab":
             reason = "already_selected"
+        elif item.get("canvas") and item["role"] not in {"button", "link"}:
+            reason = "canvas_needs_hit_target"
         elif item["tag"] == "select":
             kind = "select"
             option_indices = [
@@ -166,7 +188,7 @@ async def plan(
         ):
             kind = "fill"
             for selector, configured in settings.form_values.items():
-                if await page.locator(item["selector"]).evaluate("(e,s) => e.matches(s)", selector):
+                if await locator_for_item(page, item).evaluate("(e,s) => e.matches(s)", selector):
                     value, category = configured, Safety.SAFE
                     break
             if value is None:
@@ -176,18 +198,68 @@ async def plan(
                     value, category = SecretStr("accessibility test"), Safety.SAFE
                 else:
                     reason = "missing_test_data"
-        for option_number, option_index in enumerate(option_indices):
+        specs: list[tuple[str, str | None, int | None]] = [
+            (kind, None, option_index) for option_index in option_indices
+        ]
+        if item.get("draggable") and not (
+            item["tag"] in {"a", "button", "input", "textarea", "select", "summary"}
+            or item["role"] in ROLES
+            or item.get("clickable")
+            or item.get("canvas")
+        ):
+            # Draggability alone does not make the element a click target.
+            specs = []
+        # Explicit keyboard handlers can expose another UI state. This is an
+        # interaction path, not a keyboard accessibility assessment. Native
+        # click activation alone does not justify an additional keypress.
+        if (
+            keyboard_enabled
+            and not item["href"]
+            and item.get("keyboard")
+            and item.get("keyboard_handler")
+            and (
+                item.get("role")
+                in {"button", "link", "tab", "menuitem", "switch", "checkbox", "radio"}
+                or (
+                    item["attributes"].get("tabindex", "-1") not in {"-1", ""}
+                    and bool(item.get("clickable"))
+                )
+            )
+        ):
+            activation_key = "Space" if item["role"] in {"switch", "checkbox", "radio"} else "Enter"
+            specs.append(("keypress", activation_key, None))
+        if (
+            not item["href"]
+            and item.get("hoverable")
+            and (
+                item.get("role") in {"button", "tab", "menuitem", "combobox"}
+                or item["attributes"].get("aria-haspopup")
+            )
+        ):
+            specs.append(("hover", None, None))
+        if item.get("draggable"):
+            specs.append(("drag", None, None))
+
+        for option_number, (action_kind, key, option_index) in enumerate(specs):
+            action_identity = [state.state_id, element.element_id, action_kind, option_index]
+            if key is not None:
+                action_identity.append(key)
             action = Action(
-                action_id=digest([state.state_id, element.element_id, kind, option_index])[:20],
+                action_id=digest(action_identity)[:20],
                 source_state=state.state_id,
-                action_type=kind,
+                action_type=action_kind,  # type: ignore[arg-type]
                 element=element,
                 safety=category,
+                key=key,
                 option_index=option_index,
                 replayable=category == Safety.SAFE,
             )
             skip_reason = reason
-            if option_number >= settings.max_select_options:
+            if action_kind == "drag":
+                # Discovery cannot infer a safe, meaningful drop destination.
+                skip_reason = skip_reason or "drag_needs_target"
+                action.replayable = False
+            if action_kind == "select" and option_number >= settings.max_select_options:
                 skip_reason = "select_option_budget"
             allowed = (
                 category in {Safety.UNKNOWN, Safety.CAUTION, Safety.DESTRUCTIVE}
@@ -203,7 +275,12 @@ async def plan(
                     value,
                     skip_reason,
                     direct_navigation=bool(
-                        item["href"] and category == Safety.SAFE and not item.get("scripted_link")
+                        action_kind == "navigate"
+                        and item["href"]
+                        and category == Safety.SAFE
+                        and not item.get("scripted_link")
+                        and not item.get("frame_path")
+                        and not item.get("shadow_path")
                     ),
                 )
             )

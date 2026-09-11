@@ -138,6 +138,16 @@ class ChromiumSession:
             except ValueError:
                 return True
 
+        def blocked_frame_document(url: str, method: str) -> bool:
+            # Embedded documents are readable crawl surfaces only on the current
+            # page's origin. Preserve the previous denial of mutating frame
+            # navigations, including when the top-level crawl allows other origins.
+            return (
+                method not in {"GET", "HEAD", "OPTIONS"}
+                or origin(url) != origin(self.page.url)
+                or blocked(url, method, False)
+            )
+
         async def auxiliary_guard(route: Route) -> None:
             request = route.request
             frame = None
@@ -165,7 +175,8 @@ class ChromiumSession:
                 self._blocked_requests += 1
                 await route.abort("blockedbyclient")
             elif request.is_navigation_request() and (
-                request.frame.page != self.page or request.frame != self.page.main_frame
+                frame != self.page.main_frame
+                and blocked_frame_document(request.url, request.method)
             ):
                 self._blocked_requests += 1
                 await route.abort("blockedbyclient")
@@ -200,10 +211,15 @@ class ChromiumSession:
                 prohibited_method = (
                     mutating and request["url"] not in settings.crawl.allowed_request_urls
                 )
+                main_document = payload.get("frameId") == main_frame_id
                 if (
                     payload["resourceType"] == "Document"
-                    and blocked(
-                        request["url"], request["method"], payload.get("frameId") == main_frame_id
+                    and (
+                        blocked(request["url"], request["method"], main_document)
+                        or (
+                            not main_document
+                            and blocked_frame_document(request["url"], request["method"])
+                        )
                     )
                 ) or prohibited_method:
                     self.blocked_navigation = True

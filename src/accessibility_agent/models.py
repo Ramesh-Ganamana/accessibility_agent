@@ -29,6 +29,11 @@ class Impact(StrEnum):
 class Element(Model):
     element_id: str
     selector: str
+    # Selectors are evaluated in the owning document.  These paths keep
+    # controls inside same-origin iframes and open shadow roots addressable
+    # without flattening them into the main document.
+    frame_path: list[str] = Field(default_factory=list)
+    shadow_path: list[str] = Field(default_factory=list)
     tag: str
     role: str = ""
     accessible_name: str = ""
@@ -60,7 +65,9 @@ class State(Model):
 class Action(Model):
     action_id: str
     source_state: str
-    action_type: Literal["navigate", "click", "keypress", "fill", "select"]
+    action_type: Literal[
+        "navigate", "click", "keypress", "hover", "drag", "fill", "select"
+    ]
     element: Element
     target_state: str | None = None
     safety: Safety = Safety.UNKNOWN

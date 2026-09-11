@@ -29,7 +29,8 @@ def _review(path: Path) -> ReviewSet:
 
 def _protect_inputs(output: Path, inputs: list[Path]) -> None:
     targets = [output / name for name in (
-        "acr.json", "acr-report.html", "review.json", "comparison.json", "comparison.html"
+        "acr.json", "acr-report.html", "review.json", "comparison.json", "comparison.html",
+        "draft-acr.docx", "vpat-template.docx",
     )]
     if {path.resolve() for path in inputs} & {path.resolve() for path in targets}:
         raise ValueError("Output would overwrite an input file; choose a separate output folder")
@@ -93,7 +94,7 @@ def main(argv: Sequence[str]) -> int:
         if args.command == "prepare":
             _protect_inputs(args.output, [args.report])
             if any((args.output / name).exists() for name in (
-                "acr.json", "acr-report.html", "review.json"
+                "acr.json", "acr-report.html", "review.json", "draft-acr.docx", "vpat-template.docx"
             )):
                 raise ValueError("Draft already exists; use a new folder or the build command")
             product = Product(
@@ -107,7 +108,9 @@ def main(argv: Sequence[str]) -> int:
             # The review input can be output/review.json; build never overwrites that file.
             _protect_inputs(args.output, [args.report])
             if args.review.resolve() in {
-                (args.output / name).resolve() for name in ("acr.json", "acr-report.html")
+                (args.output / name).resolve() for name in (
+                    "acr.json", "acr-report.html", "draft-acr.docx", "vpat-template.docx"
+                )
             }:
                 raise ValueError("Output would overwrite the review input")
             review = _review(args.review)
@@ -116,6 +119,7 @@ def main(argv: Sequence[str]) -> int:
         if args.command == "prepare":
             atomic_write(args.output / "review.json", review.model_dump_json(indent=2))
         print(f"Draft ACR: {path.resolve()}")
+        print(f"VPAT-based Word draft: {(args.output / 'draft-acr.docx').resolve()}")
         print(f"Pending criteria: {document.pending_count}; conflicts: {document.conflict_count}")
         print("Draft only. Human review is required; this is not accessibility certification.")
         return 3 if document.conflict_count else 0

@@ -90,9 +90,13 @@ class ScanOrchestrator:
                 "Interactive mode crawls safe URLs directly and explores UI states through "
                 "verified replay. Links mode "
                 "retains the original navigation-only behavior.",
-                "Keyboard, browser accessibility tree and contextual AI analysis "
+                "Keyboard activation and hover are attempted for supported widgets. "
+                "Drag destinations, arbitrary canvas hit regions and complex gestures require "
+                "a configured interaction or review; full keyboard testing and AI planning "
                 "are not implemented.",
-                "Frames are excluded from axe scans; frame/shadow navigation is unsupported.",
+                "Open shadow roots and readable same-origin frames are inventoried and replayed. "
+                "Closed or cross-origin browsing contexts may remain unscanned; axe scans include "
+                "readable iframes but still cannot certify inaccessible content.",
                 "One safe popup URL per interaction is tested through the existing navigator. "
                 "Additional popups and inline about:blank windows are recorded as untested. "
                 "Lazy discovery uses up to three scroll steps for the document and four "
@@ -342,6 +346,11 @@ class ScanOrchestrator:
             if state.status == "discovered":
                 state.status = "failed"
         report.graph = crawler.graph()
+        report.configuration["keyboard_executed"] = False
+        report.configuration["keyboard_interactions_executed"] = any(
+            action.action_type == "keypress" and action.outcome == "executed"
+            for action in report.graph.actions
+        )
         report.unscanned.extend(crawler.unscanned())
         if crawler.readiness_fallbacks:
             report.limitations.append(

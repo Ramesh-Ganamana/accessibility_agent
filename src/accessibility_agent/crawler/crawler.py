@@ -110,8 +110,17 @@ class InitialCrawler:
                     continue
                 elements = [
                     Element(
-                        element_id=digest([state_id, item["selector"]])[:16],
+                        element_id=digest(
+                            [
+                                state_id,
+                                item["frame_path"],
+                                item.get("shadow_path", []),
+                                item["selector"],
+                            ]
+                        )[:16],
                         selector=item["selector"],
+                        frame_path=item.get("frame_path", []),
+                        shadow_path=item.get("shadow_path", []),
                         tag=item["tag"],
                         role=item["role"],
                         accessible_name=self.redactor.text(item["accessible_name"][:500]),
@@ -119,6 +128,7 @@ class InitialCrawler:
                         attributes={
                             k: self.redactor.text(v) for k, v in item["attributes"].items()
                         },
+                        visible=item.get("visible", True),
                     )
                     for item in snapshot["elements"]
                 ]
@@ -127,6 +137,7 @@ class InitialCrawler:
                     url=self.redactor.url(page.url),
                     title=self.redactor.text(await page.title()),
                     dom_hash=dom_hash,
+                    fingerprint_version="3",
                     depth=depth,
                     visible_elements=elements,
                     interactive_elements=elements,
@@ -143,9 +154,20 @@ class InitialCrawler:
                 if via:
                     via.target_state, via.outcome = state_id, "executed"
                     self.tested_elements.add((via.source_state, via.element.element_id))
-                for name in ("frames", "shadow", "truncated"):
-                    if snapshot[name]:
-                        self.skip(url, f"unsupported_{name}")
+                if snapshot.get("unsupported_frames"):
+                    self.skip(
+                        url,
+                        "unsupported_frames",
+                        detail="Some embedded frames were not readable.",
+                    )
+                if snapshot.get("unsupported_shadow"):
+                    self.skip(
+                        url,
+                        "unsupported_shadow",
+                        detail="A closed shadow root was not readable.",
+                    )
+                if snapshot.get("truncated"):
+                    self.skip(url, "unsupported_truncated", detail="Inventory limits were reached.")
                 for index, (item, element) in enumerate(
                     zip(snapshot["elements"], elements, strict=True)
                 ):

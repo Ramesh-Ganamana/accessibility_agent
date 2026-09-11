@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from jinja2 import Environment, StrictUndefined
 
 from accessibility_agent.conformance.models import DraftACR
+from accessibility_agent.conformance.vpat import write_vpat_exports
 from accessibility_agent.reporting.presentation import _local_evidence_path
 from accessibility_agent.reporting.writers import atomic_write
 
@@ -85,6 +86,7 @@ def _copy_screenshots(
 def write_acr(document: DraftACR, output_dir: Path, source_dir: Path) -> Path:
     """Write an editable offline draft; only a validated rebuild changes the saved ACR."""
     output_dir.mkdir(parents=True, exist_ok=True)
+    write_vpat_exports(document, output_dir)
     screenshots, evidence_warnings = _copy_screenshots(document, output_dir, source_dir)
     portable = document.model_copy(deep=True)
     for evidence in portable.evidence:

@@ -29,6 +29,9 @@ class JSONReportWriter:
 
 class HTMLReportWriter:
     async def write(self, report: Report, output_dir: Path) -> Path:
+        # The conformance writer reuses atomic_write; defer this import to avoid a cycle.
+        from accessibility_agent.conformance.automatic import prepare_report_bundle
+
         output_dir.mkdir(parents=True, exist_ok=True)
         source = (
             files("accessibility_agent.reporting")
@@ -43,6 +46,7 @@ class HTMLReportWriter:
                 report=report,
                 percentages=report.coverage.percentages(),
                 presentation=present_report(report, output_dir),
+                conformance=prepare_report_bundle(report, output_dir),
             ),
         )
         return path

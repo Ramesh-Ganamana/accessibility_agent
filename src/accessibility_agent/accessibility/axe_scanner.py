@@ -7,7 +7,10 @@ import re
 from importlib.resources import files
 from typing import Any, Literal
 
+from playwright.async_api import Error
+
 from accessibility_agent.config.settings import Accessibility
+from accessibility_agent.crawler.discovery import readable_frame
 from accessibility_agent.interfaces import BrowserSession
 from accessibility_agent.models import Finding, Occurrence, RuleResult, ScanResult, State
 from accessibility_agent.utils.privacy import Redactor
@@ -121,8 +124,20 @@ class AxeScanner:
         async with asyncio.timeout(self.timeout_ms / 1000):
             # Evaluate directly so a restrictive page CSP does not require a remote script tag.
             await session.page.evaluate(self.bundle)
+            for frame in session.page.frames:
+                if frame == session.page.main_frame or not await readable_frame(frame):
+                    continue
+                try:
+                    await frame.evaluate(self.bundle)
+                except Error:
+                    # A frame can navigate/detach between inventory and injection.
+                    # axe's frame-tested check reports unresponsive frames for review.
+                    continue
             raw = await session.page.evaluate(
-                "tags => axe.run(document, {runOnly:{type:'tag',values:tags}, iframes:false})",
+                """tags => axe.run(document, {
+                    runOnly:{type:'tag',values:tags}, iframes:true,
+                    rules:{'frame-tested':{enabled:true}}
+                })""",
                 self.tags,
             )
         return convert(raw, state, self.redactor)
