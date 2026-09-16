@@ -7,6 +7,8 @@ through verified replay. Receive HTML, JSON, screenshots and a state graph.
 
 The original Phase 1 crawler remains available with `--crawl-mode links`.
 
+This branch also adds [WCAG review, draft ACR exports and release comparisons](docs/conformance.md).
+
 ## Install
 
 Python 3.12+ is required. In PowerShell:
@@ -317,3 +319,18 @@ Username and password remain optional. Supply them for a login page. Leave the
 username empty for a public website; no credential prompt occurs inside Chromium.
 
 A run with only refreshed sources and zero successful interactions is marked partial.
+
+## WCAG and draft ACR reporting
+
+This branch preserves the existing crawler and adds an **offline, human-reviewed
+WCAG/VPAT/ACR preparation workflow**. No new requirements or API key are needed.
+
+- Map saved scan findings to the full selected WCAG checklist.
+- Record reviewer decisions, methods, dates, remarks and evidence.
+- Export a draft ACR dashboard and JSON; download edited review records from the dashboard.
+- Compare two saved scans and optionally their reviewed conformance assessments.
+- Keep absent coverage, incomplete tests and uncertain matches separate from verified fixes.
+
+Start with `launch-agent.cmd acr --help`, then follow [the walkthrough](docs/conformance.md).
+Automatic passes are **not** conformance decisions. Outputs remain drafts, not certification
+or complete Section 508 / EN 301 549 reports. The current crawler command is unchanged.

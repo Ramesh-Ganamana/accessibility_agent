@@ -2,7 +2,10 @@
 
 `crawl.mode: interactive` uses InteractiveCrawler; `links` preserves InitialCrawler
 for Phase 1 compatibility. Both share graph/counter conventions and feed the same
-scan/evidence/reporting pipeline. No AI or keyboard testing is added.
+scan/evidence/reporting pipeline. Interactive mode uses Playwright for bounded
+click, keyboard activation and hover probes; links mode remains navigation-only.
+An AI planner can be added as an optional classifier for ambiguous controls, but
+the deterministic browser and safety policy remain authoritative.
 
 Interactive discovery produces actions for semantic links, buttons, menus, tabs,
 options, comboboxes, summaries, selects, checkboxes/radios and configured inputs.
@@ -67,11 +70,18 @@ never replayed. HTTP writes require exact URL allowances and also make the actio
 terminal. CDP checks redirect hops, including unsafe methods. GET side effects,
 WebSocket traffic and external server state cannot be rolled back.
 
-Frames/popups are blocked and shadow interaction remains unsupported. Native
-selects test changed selection, not the operating-system popup. Forms are
-inventoried and optionally filled; automatic validation and keyboard testing are
-later work. Limits: 2,000 inventoried controls, 10,000 fingerprint DOM elements,
+Open shadow roots and readable same-origin frames are inventoried and replayed.
+Cross-origin or detached frames, closed shadow roots, native OS popups and
+complex touch gestures remain unscanned. Closed shadow roots cannot be reliably
+detected. Canvas elements with button/link semantics can be clicked as a whole;
+arbitrary canvas hit regions and drag destinations require a configured target.
+Drag-only controls are recorded as `drag_needs_target`, without guessing a drop.
+Native selects test changed selection, not the operating-system
+popup. Forms are inventoried and optionally filled; automatic validation is not
+claimed. Limits: 2,000 inventoried controls, 10,000 fingerprint DOM elements,
 100,000 text characters; truncation is reported. No full-site coverage is claimed.
+The axe scan includes readable iframe documents; cross-origin restrictions can
+still make individual frame rules incomplete.
 
 ## Interaction coverage
 
@@ -86,4 +96,6 @@ ARIA controls. Search inputs receive a synthetic query without form submission;
 other fields still use `crawl.form_values`. Negative tabindex containers without
 control semantics are excluded from the control count. Successful UI changes can
 be scanned despite blocked background requests, with a partial-coverage warning.
-Controls used counts successful interactions, not direct visits or keyboard testing.
+Controls used counts successful interactions, including bounded keyboard activation
+and hover, not direct visits or replay repetitions. Keyboard activation does not
+establish keyboard accessibility conformance.

@@ -21,7 +21,7 @@ accessibility-agent = "accessibility_agent.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-accessibility_agent = ["py.typed", "accessibility/vendor/*", "reporting/templates/*.html", "crawler/*.js"]
+accessibility_agent = ["py.typed", "accessibility/vendor/*", "reporting/templates/*.html", "crawler/*.js", "conformance/templates/*.html", "conformance/vendor/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

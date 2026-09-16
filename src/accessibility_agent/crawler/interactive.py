@@ -10,7 +10,7 @@ from weakref import WeakKeyDictionary
 from playwright.async_api import Page, Response
 
 from accessibility_agent.crawler.crawler import InitialCrawler
-from accessibility_agent.crawler.discovery import inventory
+from accessibility_agent.crawler.discovery import inventory, locator_for_item
 from accessibility_agent.crawler.fingerprint import digest, fingerprint
 from accessibility_agent.crawler.navigation import classify_link
 from accessibility_agent.crawler.planner import Step, identity, is_control, plan
@@ -143,8 +143,17 @@ class InteractiveCrawler(InitialCrawler):
         state_id, dom_hash = fingerprint(url, data)
         elements = [
             Element(
-                element_id=digest([state_id, item["selector"]])[:16],
+                element_id=digest(
+                    [
+                        state_id,
+                        item.get("frame_path", []),
+                        item.get("shadow_path", []),
+                        item["selector"],
+                    ]
+                )[:16],
                 selector=item["selector"],
+                frame_path=item.get("frame_path", []),
+                shadow_path=item.get("shadow_path", []),
                 tag=item["tag"],
                 role=item["role"],
                 accessible_name=self.redactor.text(item["accessible_name"][:500]),
@@ -164,7 +173,7 @@ class InteractiveCrawler(InitialCrawler):
             url=self.redactor.url(url),
             title=self.redactor.text(title),
             dom_hash=dom_hash,
-            fingerprint_version="2",
+            fingerprint_version="3",
             depth=len(path),
             visible_elements=[e for e in elements if e.visible],
             discovered_links=[
@@ -181,12 +190,21 @@ class InteractiveCrawler(InitialCrawler):
             self.readiness_fallbacks[state_id] = fallback
         self.states.append(state)
         self.urls_discovered.add(normalize_url(url))
-        for key in ("frames", "shadow", "truncated"):
-            if data[key]:
-                self.skip(url, "unsupported_" + key)
+        if data.get("unsupported_frames"):
+            self.skip(url, "unsupported_frames", detail="Some embedded frames were not readable.")
+        if data.get("unsupported_shadow"):
+            self.skip(url, "unsupported_shadow", detail="A closed shadow root was not readable.")
+        if data.get("truncated"):
+            self.skip(url, "unsupported_truncated", detail="Inventory limits were reached.")
         return state
 
     async def perform(self, session: BrowserSession, step: Step) -> None:
+        if step.action.action_type == "drag":
+            raise ReplayDiverged("Drag requires an explicit drop target")
+        if step.action.action_type == "keypress" and (
+            not self.settings.keyboard.enabled or not step.action.key
+        ):
+            raise ReplayDiverged("Keyboard interaction is disabled or missing a key")
         if step.direct_navigation:
             blocked_before = session.blocked_requests
             mutations_before = session.mutating_requests
@@ -205,13 +223,20 @@ class InteractiveCrawler(InitialCrawler):
         mutations_before = session.mutating_requests
         data = await inventory(session.page, self.settings.crawl.ignore_selectors)
         item = next(
-            (e for e in data["elements"] if e["selector"] == step.action.element.selector), None
+            (
+                e
+                for e in data["elements"]
+                if e["selector"] == step.action.element.selector
+                and e.get("frame_path", []) == step.action.element.frame_path
+                and e.get("shadow_path", []) == step.action.element.shadow_path
+            ),
+            None,
         )
         if item is None or identity(item) != step.expected_identity:
             raise ReplayDiverged("Target semantics changed")
         if item["disabled"] or item["inert"] or item["blocked_by_modal"]:
             raise ReplayDiverged("Target is not actionable")
-        locator = session.page.locator(step.action.element.selector)
+        locator = locator_for_item(session.page, item)
         action = step.action
         statuses: list[int] = []
         page = session.page
@@ -231,7 +256,17 @@ class InteractiveCrawler(InitialCrawler):
                 if step.value is None:
                     raise ReplayDiverged("Missing test data")
                 await locator.fill(step.value.get_secret_value())
-            elif action.action_type == "navigate" and action.safety != Safety.SAFE:
+            elif action.action_type == "keypress":
+                assert action.key is not None
+                await locator.press(action.key)
+            elif action.action_type == "hover":
+                await locator.hover()
+            elif (
+                action.action_type == "navigate"
+                and action.safety != Safety.SAFE
+                and not action.element.frame_path
+                and not action.element.shadow_path
+            ):
                 response = await session.navigate(step.url, allow_risky=True)
                 if response is not None and response.status >= 400:
                     raise HTTPFailure()
@@ -334,9 +369,23 @@ class InteractiveCrawler(InitialCrawler):
 
         async def expand(node: Node, data: dict[str, Any]) -> None:
             steps = await plan(
-                session.page, node.state, data["elements"], root_url, self.settings.crawl
+                session.page,
+                node.state,
+                data["elements"],
+                root_url,
+                self.settings.crawl,
+                keyboard_enabled=self.settings.keyboard.enabled,
             )
-            steps.sort(key=lambda step: not step.direct_navigation)
+            # Keep direct links ahead of UI actions, then put the unexecutable
+            # drag placeholder before a control's canonical click.  This
+            # keeps report consumers from treating the skipped drag probe as
+            # the control's only result when both share an accessible name.
+            steps.sort(
+                key=lambda step: (
+                    not step.direct_navigation,
+                    step.action.action_type != "drag",
+                )
+            )
             eligible = 0
             for step in steps:
                 self.actions.append(step.action)
@@ -444,6 +493,8 @@ class InteractiveCrawler(InitialCrawler):
                         if (
                             step.action.action_type != "navigate"
                             or step.action.safety != Safety.SAFE
+                            or step.action.element.frame_path
+                            or step.action.element.shadow_path
                         ):
                             raise
                         await session.restore()
